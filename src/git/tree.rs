@@ -45,3 +45,51 @@ pub fn serialize_tree(entries: &[TreeEntry]) -> Result<Vec<u8>> {
 
     Ok(result)
 }
+
+pub fn parse_tree(data: &[u8]) -> Result<Vec<TreeEntry>> {
+    let mut entries = Vec::new();
+    let mut index = 0;
+
+    while index < data.len() {
+        let mode_start = index;
+
+        while index < data.len() && data[index] != b' ' {
+            index += 1;
+        }
+
+        if index >= data.len() {
+            return Err(anyhow!("invalid tree object: missing space after mode"));
+        }
+
+        let mode = std::str::from_utf8(&data[mode_start..index])?.to_string();
+
+        index += 1;
+
+        let name_start = index;
+
+        while index < data.len() && data[index] != 0 {
+            index += 1;
+        }
+
+        if index >= data.len() {
+            return Err(anyhow!("invalid tree object: missing null byte after name"));
+        }
+
+        let name = std::str::from_utf8(&data[name_start..index])?.to_string();
+
+        index += 1;
+
+        if index + 20 > data.len() {
+            return Err(anyhow!("invalid tree object: missing 20-byte object hash"));
+        }
+
+        let raw_hash = &data[index..index + 20];
+        let hash = hex::encode(raw_hash);
+
+        index += 20;
+
+        entries.push(TreeEntry { mode, name, hash });
+    }
+
+    Ok(entries)
+}

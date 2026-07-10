@@ -38,5 +38,3 @@ match cli.command {
 }
 
 }
-
-// 00e78bdf5d59a6009807279f11ca575852b57177
