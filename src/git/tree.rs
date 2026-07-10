@@ -15,6 +15,14 @@ impl TreeEntry {
             hash,
         }
     }
+
+    pub fn new_tree(name: String, hash: String) -> Self {
+        Self {
+            mode: "40000".to_string(),
+            name,
+            hash,
+        }
+    }
 }
 
 pub fn serialize_tree(entries: &[TreeEntry]) -> Result<Vec<u8>> {
