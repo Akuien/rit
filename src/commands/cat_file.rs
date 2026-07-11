@@ -20,7 +20,7 @@ pub fn run(hash: &str) -> Result<()> {
             for entry in entries {
                 println!(
                     "{} {} {}\t{}",
-                    entry.mode,
+                    dosplay_mode(&entry.mode),
                     object_kind_from_mode(&entry.mode),
                     entry.hash,
                     entry.name
@@ -44,5 +44,12 @@ fn object_kind_from_mode(mode: &str) -> &'static str {
     match mode {
         "40000" => "tree",
         _ => "blob",
+    }
+}
+
+fn display_mode(mode: &str) -> String {
+    match mode {
+        "40000" => "040000".to_string(),
+        _ => mode.to_string(),
     }
 }
