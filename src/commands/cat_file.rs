@@ -20,7 +20,7 @@ pub fn run(hash: &str) -> Result<()> {
             for entry in entries {
                 println!(
                     "{} {} {}\t{}",
-                    dosplay_mode(&entry.mode),
+                    display_mode(&entry.mode),
                     object_kind_from_mode(&entry.mode),
                     entry.hash,
                     entry.name
