@@ -25,6 +25,11 @@ enum Command {
     },
 
     WriteTree,
+
+    Commit {
+        #[arg(short, long)]
+        message: String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -35,6 +40,7 @@ match cli.command {
     Command::HashObject { path } => commands::hash_object::run(&path),
     Command::CatFile { hash } => commands::cat_file::run(&hash),
     Command::WriteTree => commands::write_tree::run(),
+    Command::Commit { message } => commands::commit::run(&message),
 }
 
 }
