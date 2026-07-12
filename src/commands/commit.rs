@@ -1,16 +1,22 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use chrono::Local;
 
 use crate::git::commit::serialize_commit;
+use crate::git::index::Index;
 use crate::git::object::{write_object, ObjectType};
 use crate::git::refs::{current_branch_name, read_head_commit, update_head_commit};
 use crate::git::repository::Repository;
-use crate::git::worktree::write_worktree;
 
 pub fn run(message: &str) -> Result<()> {
     let repo = Repository::discover()?;
 
-    let tree_hash = write_worktree(&repo)?;
+    let index = Index::load(&repo)?;
+
+    if index.entries.is_empty() {
+        return Err(anyhow!("nothing added to commit"));
+    }
+
+    let tree_hash = index.write_tree(&repo)?;
     let parent_hash = read_head_commit(&repo)?;
 
     let now = Local::now();
