@@ -36,6 +36,8 @@ enum Command {
     Checkout {
         hash: String,
     },
+
+    Status,
 }
 
 fn main() -> Result<()> {
@@ -49,6 +51,7 @@ match cli.command {
     Command::Commit { message } => commands::commit::run(&message),
     Command::Log => commands::log::run(),
     Command::Checkout { hash } => commands::checkout::run(&hash),
+    Command::Status => commands::status::run(),
 }
 
 }
