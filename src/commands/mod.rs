@@ -6,3 +6,4 @@ pub mod commit;
 pub mod log;
 pub mod checkout;
 pub mod status;
+pub mod add;

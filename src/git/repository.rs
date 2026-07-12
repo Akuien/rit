@@ -15,6 +15,10 @@ impl Repository {
         Self { worktree, rit_dir }
     }
 
+    pub fn index_path(&self) -> PathBuf {
+    self.rit_dir.join("index")
+    }
+
     pub fn discover() -> Result<Self> {
         let current_dir = env::current_dir()?;
 

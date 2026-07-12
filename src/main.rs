@@ -38,6 +38,10 @@ enum Command {
     },
 
     Status,
+
+    Add {
+        path:String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -52,6 +56,7 @@ match cli.command {
     Command::Log => commands::log::run(),
     Command::Checkout { hash } => commands::checkout::run(&hash),
     Command::Status => commands::status::run(),
+    Command::Add { path } => commands::add::run(&path),
 }
 
 }

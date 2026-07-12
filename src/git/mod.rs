@@ -5,3 +5,4 @@ pub mod worktree; // This makes git::worktree available to the rest of the progr
 pub mod commit; // This makes git::commit available to the rest of the program.
 pub mod refs;
 pub mod status;
+pub mod index;
