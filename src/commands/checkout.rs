@@ -7,6 +7,7 @@ use crate::git::object::{read_object, ObjectType};
 use crate::git::refs::{branch_exists, read_branch_commit, set_current_branch};
 use crate::git::repository::Repository;
 use crate::git::tree::parse_tree;
+use crate::git::index::Index;
 
 pub fn run(target: &str) -> Result<()> {
     let repo = Repository::discover()?;
@@ -48,6 +49,9 @@ fn restore_commit(repo: &Repository, commit_hash: &str) -> Result<()> {
     let commit = parse_commit(&commit_object.content)?;
 
     checkout_tree(repo, &commit.tree, &repo.worktree)?;
+
+    let index = Index::from_tree(repo, &commit.tree)?;
+    index.save(repo)?;
 
     Ok(())
 }
