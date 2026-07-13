@@ -8,9 +8,12 @@ use crate::git::refs::{branch_exists, read_branch_commit, set_current_branch};
 use crate::git::repository::Repository;
 use crate::git::tree::parse_tree;
 use crate::git::index::Index;
+use crate::git::status::working_tree_file_map;
 
 pub fn run(target: &str) -> Result<()> {
     let repo = Repository::discover()?;
+
+    ensure_clean_working_tree(&repo)?;
 
     if branch_exists(&repo, target) {
         checkout_branch(&repo, target)
@@ -138,6 +141,51 @@ fn checkout_tree(repo: &Repository, tree_hash: &str, destination: &Path) -> Resu
                 return Err(anyhow!("unsupported tree entry mode: {}", other));
             }
         }
+    }
+
+    Ok(())
+}
+
+
+fn ensure_clean_working_tree(repo: &Repository) -> Result<()> {
+    let index = Index::load(repo)?;
+    let working_files = working_tree_file_map(repo)?;
+
+    let mut dirty_paths = Vec::new();
+
+    for (path, index_hash) in &index.entries {
+        match working_files.get(path) {
+            Some(working_hash) if working_hash != index_hash => {
+                dirty_paths.push(path.clone());
+            }
+
+            None => {
+                dirty_paths.push(path.clone());
+            }
+
+            _ => {}
+        }
+    }
+
+    for path in working_files.keys() {
+        if !index.entries.contains_key(path) {
+            dirty_paths.push(path.clone());
+        }
+    }
+
+    dirty_paths.sort();
+    dirty_paths.dedup();
+
+    if !dirty_paths.is_empty() {
+        eprintln!("error: your local changes would be overwritten by checkout");
+        eprintln!("Please commit or discard your changes before switching branches.");
+        eprintln!();
+
+        for path in dirty_paths {
+            eprintln!("    {}", path);
+        }
+
+        return Err(anyhow!("checkout aborted"));
     }
 
     Ok(())
