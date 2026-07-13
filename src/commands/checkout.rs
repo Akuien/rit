@@ -4,12 +4,41 @@ use std::path::Path;
 
 use crate::git::commit::parse_commit;
 use crate::git::object::{read_object, ObjectType};
+use crate::git::refs::{branch_exists, read_branch_commit, set_current_branch};
 use crate::git::repository::Repository;
 use crate::git::tree::parse_tree;
 
-pub fn run(commit_hash: &str) -> Result<()> {
+pub fn run(target: &str) -> Result<()> {
     let repo = Repository::discover()?;
 
+    if branch_exists(&repo, target) {
+        checkout_branch(&repo, target)
+    } else {
+        checkout_commit(&repo, target)
+    }
+}
+
+fn checkout_branch(repo: &Repository, branch_name: &str) -> Result<()> {
+    let commit_hash = read_branch_commit(repo, branch_name)?;
+
+    restore_commit(repo, &commit_hash)?;
+
+    set_current_branch(repo, branch_name)?;
+
+    println!("Switched to branch '{}'", branch_name);
+
+    Ok(())
+}
+
+fn checkout_commit(repo: &Repository, commit_hash: &str) -> Result<()> {
+    restore_commit(repo, commit_hash)?;
+
+    println!("Checked out commit {}", commit_hash);
+
+    Ok(())
+}
+
+fn restore_commit(repo: &Repository, commit_hash: &str) -> Result<()> {
     let commit_object = read_object(&repo.objects_dir(), commit_hash)?;
 
     if commit_object.object_type != ObjectType::Commit {
@@ -18,9 +47,7 @@ pub fn run(commit_hash: &str) -> Result<()> {
 
     let commit = parse_commit(&commit_object.content)?;
 
-    checkout_tree(&repo, &commit.tree, &repo.worktree)?;
-
-    println!("Checked out commit {}", commit_hash);
+    checkout_tree(repo, &commit.tree, &repo.worktree)?;
 
     Ok(())
 }

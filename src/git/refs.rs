@@ -72,6 +72,43 @@ fn validate_branch_name(branch_name: &str) -> Result<()> {
     Ok(())
 }
 
+
+pub fn branch_exists(repo: &Repository, branch_name: &str) -> bool {
+    branch_path(repo, branch_name).exists()
+}
+
+pub fn read_branch_commit(repo: &Repository, branch_name: &str) -> Result<String> {
+    let path = branch_path(repo, branch_name);
+
+    if !path.exists() {
+        return Err(anyhow!("branch does not exist: {}", branch_name));
+    }
+
+    let hash = fs::read_to_string(path)?;
+    let hash = hash.trim().to_string();
+
+    if hash.is_empty() {
+        return Err(anyhow!("branch has no commits: {}", branch_name));
+    }
+
+    Ok(hash)
+}
+
+pub fn set_current_branch(repo: &Repository, branch_name: &str) -> Result<()> {
+    validate_branch_name(branch_name)?;
+
+    if !branch_exists(repo, branch_name) {
+        return Err(anyhow!("branch does not exist: {}", branch_name));
+    }
+
+    fs::write(
+        repo.head_path(),
+        format!("ref: refs/heads/{}\n", branch_name),
+    )?;
+
+    Ok(())
+}
+
 pub fn current_branch_name(repo: &Repository) -> Result<String> {
     let head_content = fs::read_to_string(repo.head_path())?;
 
