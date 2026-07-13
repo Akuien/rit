@@ -94,6 +94,16 @@ pub fn read_object(objects_dir: &Path, hash: &str) -> Result<GitObject> {
     parse_object(&data)
 }
 
+pub fn read_blob_content(objects_dir: &Path, hash: &str) -> Result<Vec<u8>> {
+    let object = read_object(objects_dir, hash)?;
+
+    if object.object_type != ObjectType::Blob {
+        return Err(anyhow!("object is not a blob: {}", hash));
+    }
+
+    Ok(object.content)
+}
+
 pub fn parse_object(data: &[u8]) -> Result<GitObject> {
     let null_position = data
         .iter()

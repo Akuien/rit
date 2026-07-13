@@ -46,6 +46,8 @@ enum Command {
     Branch {
         name: Option<String>,
     },
+
+    Diff,
 }
 
 fn main() -> Result<()> {
@@ -62,6 +64,7 @@ match cli.command {
     Command::Status => commands::status::run(),
     Command::Add { path } => commands::add::run(&path),
     Command::Branch { name } => commands::branch::run(name.as_deref()),
+    Command::Diff => commands::diff::run(),
 }
 
 }
