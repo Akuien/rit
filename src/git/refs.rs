@@ -1,7 +1,76 @@
 use anyhow::{anyhow, Result};
 use std::fs;
+use std::path::PathBuf;
 
 use crate::git::repository::Repository;
+
+
+
+pub fn branch_path(repo: &Repository, branch_name: &str) -> PathBuf {
+    repo.refs_heads_dir().join(branch_name)
+}
+
+pub fn create_branch(repo: &Repository, branch_name: &str, commit_hash: &str) -> Result<()> {
+    validate_branch_name(branch_name)?;
+
+    let path = branch_path(repo, branch_name);
+
+    if path.exists() {
+        return Err(anyhow!("branch already exists: {}", branch_name));
+    }
+
+    if let Some(parent_dir) = path.parent() {
+        fs::create_dir_all(parent_dir)?;
+    }
+
+    fs::write(path, format!("{}\n", commit_hash))?;
+
+    Ok(())
+}
+
+pub fn list_branches(repo: &Repository) -> Result<Vec<String>> {
+    let mut branches = Vec::new();
+
+    let heads_dir = repo.refs_heads_dir();
+
+    if !heads_dir.exists() {
+        return Ok(branches);
+    }
+
+    for entry_result in fs::read_dir(heads_dir)? {
+        let entry = entry_result?;
+        let path = entry.path();
+
+        if path.is_file() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            branches.push(name);
+        }
+    }
+
+    branches.sort();
+
+    Ok(branches)
+}
+
+fn validate_branch_name(branch_name: &str) -> Result<()> {
+    if branch_name.trim().is_empty() {
+        return Err(anyhow!("branch name cannot be empty"));
+    }
+
+    if branch_name.contains(' ') {
+        return Err(anyhow!("branch name cannot contain spaces"));
+    }
+
+    if branch_name.contains("..") {
+        return Err(anyhow!("branch name cannot contain '..'"));
+    }
+
+    if branch_name.starts_with('/') || branch_name.ends_with('/') {
+        return Err(anyhow!("branch name cannot start or end with '/'"));
+    }
+
+    Ok(())
+}
 
 pub fn current_branch_name(repo: &Repository) -> Result<String> {
     let head_content = fs::read_to_string(repo.head_path())?;

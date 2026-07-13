@@ -42,6 +42,10 @@ enum Command {
     Add {
         path:String,
     },
+
+    Branch {
+        name: Option<String>,
+    },
 }
 
 fn main() -> Result<()> {
@@ -57,6 +61,7 @@ match cli.command {
     Command::Checkout { hash } => commands::checkout::run(&hash),
     Command::Status => commands::status::run(),
     Command::Add { path } => commands::add::run(&path),
+    Command::Branch { name } => commands::branch::run(name.as_deref()),
 }
 
 }
