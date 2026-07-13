@@ -41,8 +41,10 @@ pub fn run() -> Result<()> {
     }
 
     let staged = compare_maps(&head_files, &index.entries);
-    let unstaged = compare_maps(&index.entries, &working_files);
+    let mut unstaged = compare_maps(&index.entries, &working_files);
     let untracked = find_untracked(&head_files, &index.entries, &working_files);
+    
+    unstaged.retain(|change| !untracked.contains(&change.path));
 
     if staged.is_empty() && unstaged.is_empty() && untracked.is_empty() {
         println!("nothing to commit, working tree clean");
