@@ -43,6 +43,10 @@ impl Index {
         self.entries.insert(path, hash);
     }
 
+    pub fn contains_path(&self, path: &str) -> bool {
+    self.entries.contains_key(path)
+    }
+
     pub fn write_tree(&self, repo: &Repository) -> Result<String> {
         let mut root = IndexTreeNode::default();
 

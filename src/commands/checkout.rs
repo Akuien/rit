@@ -48,10 +48,60 @@ fn restore_commit(repo: &Repository, commit_hash: &str) -> Result<()> {
 
     let commit = parse_commit(&commit_object.content)?;
 
+    let current_index = Index::load(repo)?;
+    let target_index = Index::from_tree(repo, &commit.tree)?;
+
+    remove_files_not_in_target(repo, &current_index, &target_index)?;
+
     checkout_tree(repo, &commit.tree, &repo.worktree)?;
 
-    let index = Index::from_tree(repo, &commit.tree)?;
-    index.save(repo)?;
+    target_index.save(repo)?;
+
+    Ok(())
+}
+
+
+fn remove_files_not_in_target(
+    repo: &Repository,
+    current_index: &Index,
+    target_index: &Index,
+) -> Result<()> {
+    for path in current_index.entries.keys() {
+        if !target_index.contains_path(path) {
+            let full_path = repo.worktree.join(path);
+
+            if full_path.exists() && full_path.is_file() {
+                fs::remove_file(&full_path)?;
+                remove_empty_parent_dirs(repo, &full_path)?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+
+fn remove_empty_parent_dirs(repo: &Repository, path: &Path) -> Result<()> {
+    let mut current = path.parent();
+
+    while let Some(dir) = current {
+        if dir == repo.worktree {
+            break;
+        }
+
+        if dir.starts_with(&repo.rit_dir) {
+            break;
+        }
+
+        match fs::remove_dir(dir) {
+            Ok(_) => {
+                current = dir.parent();
+            }
+            Err(_) => {
+                break;
+            }
+        }
+    }
 
     Ok(())
 }
