@@ -47,7 +47,10 @@ enum Command {
         name: Option<String>,
     },
 
-    Diff,
+    Diff {
+        #[arg(long)]
+        cached: bool,
+    },
 }
 
 fn main() -> Result<()> {
@@ -64,7 +67,6 @@ match cli.command {
     Command::Status => commands::status::run(),
     Command::Add { path } => commands::add::run(&path),
     Command::Branch { name } => commands::branch::run(name.as_deref()),
-    Command::Diff => commands::diff::run(),
-}
+    Command::Diff { cached } => commands::diff::run(cached),}
 
 }

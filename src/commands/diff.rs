@@ -1,59 +1,111 @@
 use anyhow::Result;
+use std::collections::{BTreeSet, HashMap};
 use std::fs;
-use std::path::Path;
 
 use crate::git::index::Index;
 use crate::git::object::read_blob_content;
+use crate::git::refs::read_head_commit;
 use crate::git::repository::Repository;
-use crate::git::status::working_tree_file_map;
+use crate::git::status::{head_tree_file_map, working_tree_file_map};
 
-pub fn run() -> Result<()> {
+pub fn run(cached: bool) -> Result<()> {
     let repo = Repository::discover()?;
-    let index = Index::load(&repo)?;
-    let working_files = working_tree_file_map(&repo)?;
 
-    let mut changed_paths = Vec::new();
+    if cached {
+        diff_head_vs_index(&repo)
+    } else {
+        diff_index_vs_working(&repo)
+    }
+}
 
-    for (path, index_hash) in &index.entries {
-        match working_files.get(path) {
-            Some(working_hash) if working_hash != index_hash => {
-                changed_paths.push(path.clone());
+fn diff_index_vs_working(repo: &Repository) -> Result<()> {
+    let index = Index::load(repo)?;
+    let working_files = working_tree_file_map(repo)?;
+
+    let changed_paths = changed_paths_between(&index.entries, &working_files);
+
+    for path in changed_paths {
+        let old_content = match index.entries.get(&path) {
+            Some(hash) => read_blob_content(&repo.objects_dir(), hash)?,
+            None => Vec::new(),
+        };
+
+        let full_path = repo.worktree.join(&path);
+
+        let new_content = if full_path.exists() {
+            fs::read(&full_path)?
+        } else {
+            Vec::new()
+        };
+
+        print_simple_diff(&path, &old_content, &new_content);
+    }
+
+    Ok(())
+}
+
+fn diff_head_vs_index(repo: &Repository) -> Result<()> {
+    let index = Index::load(repo)?;
+
+    let head_files = match read_head_commit(repo)? {
+        Some(head_hash) => head_tree_file_map(repo, &head_hash)?,
+        None => HashMap::new(),
+    };
+
+    let changed_paths = changed_paths_between(&head_files, &index.entries);
+
+    for path in changed_paths {
+        let old_content = match head_files.get(&path) {
+            Some(hash) => read_blob_content(&repo.objects_dir(), hash)?,
+            None => Vec::new(),
+        };
+
+        let new_content = match index.entries.get(&path) {
+            Some(hash) => read_blob_content(&repo.objects_dir(), hash)?,
+            None => Vec::new(),
+        };
+
+        print_simple_diff(&path, &old_content, &new_content);
+    }
+
+    Ok(())
+}
+
+fn changed_paths_between(
+    old: &HashMap<String, String>,
+    new: &HashMap<String, String>,
+) -> Vec<String> {
+    let mut paths = BTreeSet::new();
+
+    for path in old.keys() {
+        paths.insert(path.clone());
+    }
+
+    for path in new.keys() {
+        paths.insert(path.clone());
+    }
+
+    let mut changed = Vec::new();
+
+    for path in paths {
+        match (old.get(&path), new.get(&path)) {
+            (Some(old_hash), Some(new_hash)) if old_hash != new_hash => {
+                changed.push(path);
             }
 
-            None => {
-                changed_paths.push(path.clone());
+            (Some(_), None) => {
+                changed.push(path);
+            }
+
+            (None, Some(_)) => {
+                changed.push(path);
             }
 
             _ => {}
         }
     }
 
-    changed_paths.sort();
-
-    for path in changed_paths {
-        print_file_diff(&repo, &index, &path)?;
-    }
-
-    Ok(())
-}
-
-fn print_file_diff(repo: &Repository, index: &Index, path: &str) -> Result<()> {
-    let old_content = match index.entries.get(path) {
-        Some(hash) => read_blob_content(&repo.objects_dir(), hash)?,
-        None => Vec::new(),
-    };
-
-    let full_path = repo.worktree.join(path);
-
-    let new_content = if full_path.exists() {
-        fs::read(&full_path)?
-    } else {
-        Vec::new()
-    };
-
-    print_simple_diff(path, &old_content, &new_content);
-
-    Ok(())
+    changed
 }
 
 fn print_simple_diff(path: &str, old_content: &[u8], new_content: &[u8]) {
