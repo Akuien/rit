@@ -9,3 +9,4 @@ pub mod status;
 pub mod add;
 pub mod branch;
 pub mod diff;
+pub mod rm;

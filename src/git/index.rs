@@ -43,6 +43,10 @@ impl Index {
         self.entries.insert(path, hash);
     }
 
+    pub fn remove(&mut self, path: &str) -> Option<String> {
+    self.entries.remove(path)
+    }
+
     pub fn contains_path(&self, path: &str) -> bool {
     self.entries.contains_key(path)
     }
