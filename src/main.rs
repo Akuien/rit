@@ -57,6 +57,9 @@ enum Command {
     },
 
     Restore {
+        #[arg(long)]
+        staged: bool,
+
         path: String,
     },
 }
@@ -77,7 +80,7 @@ match cli.command {
     Command::Branch { name } => commands::branch::run(name.as_deref()),
     Command::Diff { cached } => commands::diff::run(cached),
     Command::Rm { path } => commands::rm::run(&path),
-    Command::Restore { path } => commands::restore::run(&path),
+    Command::Restore { staged, path } => commands::restore::run(&path, staged),
 }
 
 }
