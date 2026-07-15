@@ -135,6 +135,26 @@ pub fn current_branch_path(repo: &Repository) -> Result<std::path::PathBuf> {
     Ok(repo.rit_dir.join(ref_path))
 }
 
+pub fn delete_branch(repo: &Repository, branch_name: &str) -> Result<()> {
+    validate_branch_name(branch_name)?;
+
+    let current_branch = current_branch_name(repo)?;
+
+    if branch_name == current_branch {
+        return Err(anyhow!("cannot delete current branch: {}", branch_name));
+    }
+
+    let path = branch_path(repo, branch_name);
+
+    if !path.exists() {
+        return Err(anyhow!("branch does not exist: {}", branch_name));
+    }
+
+    fs::remove_file(path)?;
+
+    Ok(())
+}
+
 pub fn read_head_commit(repo: &Repository) -> Result<Option<String>> {
     let branch_path = current_branch_path(repo)?;
 

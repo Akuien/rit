@@ -44,6 +44,9 @@ enum Command {
     },
 
     Branch {
+        #[arg(short = 'd')]
+        delete: bool,
+
         name: Option<String>,
     },
 
@@ -77,7 +80,7 @@ match cli.command {
     Command::Checkout { hash } => commands::checkout::run(&hash),
     Command::Status => commands::status::run(),
     Command::Add { path } => commands::add::run(&path),
-    Command::Branch { name } => commands::branch::run(name.as_deref()),
+    Command::Branch { delete, name } => commands::branch::run(name.as_deref(), delete),
     Command::Diff { cached } => commands::diff::run(cached),
     Command::Rm { path } => commands::rm::run(&path),
     Command::Restore { staged, path } => commands::restore::run(&path, staged),
