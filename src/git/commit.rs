@@ -8,31 +8,27 @@ pub struct Commit {
 }
 
 pub fn serialize_commit(
-    tree_hash: &str,
-    parent_hash: Option<&str>,
+    tree: &str,
+    parent: Option<&str>,
+    second_parent: Option<&str>,
     author: &str,
-    timestamp: i64,
-    timezone: &str,
+    committer: &str,
     message: &str,
 ) -> Vec<u8> {
     let mut content = String::new();
 
-    content.push_str(&format!("tree {}\n", tree_hash));
+    content.push_str(&format!("tree {}\n", tree));
 
-    if let Some(parent) = parent_hash {
-        content.push_str(&format!("parent {}\n", parent));
+    if let Some(parent_hash) = parent {
+        content.push_str(&format!("parent {}\n", parent_hash));
     }
 
-    content.push_str(&format!(
-        "author {} {} {}\n",
-        author, timestamp, timezone
-    ));
+    if let Some(second_parent_hash) = second_parent {
+        content.push_str(&format!("parent {}\n", second_parent_hash));
+    }
 
-    content.push_str(&format!(
-        "committer {} {} {}\n",
-        author, timestamp, timezone
-    ));
-
+    content.push_str(&format!("author {}\n", author));
+    content.push_str(&format!("committer {}\n", committer));
     content.push('\n');
     content.push_str(message);
     content.push('\n');

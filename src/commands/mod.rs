@@ -12,3 +12,4 @@ pub mod diff;
 pub mod rm;
 pub mod restore;
 pub mod merge_base;
+pub mod merge;

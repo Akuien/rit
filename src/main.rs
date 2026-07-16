@@ -70,6 +70,10 @@ enum Command {
     first: String,
     second: String,
     },
+
+    Merge {
+    branch: String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -90,6 +94,7 @@ match cli.command {
     Command::Rm { path } => commands::rm::run(&path),
     Command::Restore { staged, path } => commands::restore::run(&path, staged),
     Command::MergeBase { first, second } => commands::merge_base::run(&first, &second),
+    Command::Merge { branch } => commands::merge::run(&branch),
 }
 
 }
