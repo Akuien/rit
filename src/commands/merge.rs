@@ -19,6 +19,7 @@ struct MergeResult {
 pub fn run(branch_name: &str) -> Result<()> {
     let repo = Repository::discover()?;
 
+    ensure_no_merge_in_progress(&repo)?;
     ensure_working_tree_clean(&repo)?;
 
     let ours = read_head_commit(&repo)?.ok_or_else(|| anyhow!("cannot merge: no commits yet"))?;
@@ -50,6 +51,8 @@ pub fn run(branch_name: &str) -> Result<()> {
             &theirs_files,
             branch_name,
         )?;
+
+        write_merge_head(&repo, &theirs)?;
 
         eprintln!("Automatic merge failed. Fix conflicts and then commit the result.");
         eprintln!("Conflicts:");
@@ -87,6 +90,16 @@ pub fn run(branch_name: &str) -> Result<()> {
     update_head_commit(&repo, &merge_commit_hash)?;
 
     println!("Merge made commit {}", &merge_commit_hash[..7]);
+
+    Ok(())
+}
+
+fn ensure_no_merge_in_progress(repo: &Repository) -> Result<()> {
+    if repo.merge_head_path().exists() {
+        return Err(anyhow!(
+            "cannot merge: you have an unfinished merge. Resolve it and commit first"
+        ));
+    }
 
     Ok(())
 }
@@ -243,6 +256,11 @@ fn write_conflict_files(
         fs::write(full_path, conflict_text)?;
     }
 
+    Ok(())
+}
+
+fn write_merge_head(repo: &Repository, theirs: &str) -> Result<()> {
+    fs::write(repo.merge_head_path(), format!("{}\n", theirs))?;
     Ok(())
 }
 

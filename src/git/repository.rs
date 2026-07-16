@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use std::env;
+use std::fs;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
@@ -9,31 +10,40 @@ pub struct Repository {
 }
 
 impl Repository {
-    pub fn new(worktree: PathBuf) -> Self {
-        let rit_dir = worktree.join(".rit");
-
-        Self { worktree, rit_dir }
-    }
-
-    pub fn index_path(&self) -> PathBuf {
-    self.rit_dir.join("index")
-    }
-
     pub fn discover() -> Result<Self> {
-        let current_dir = env::current_dir()?;
+        let mut current = env::current_dir()?;
 
-        let repo = Self::new(current_dir);
+        loop {
+            let rit_dir = current.join(".rit");
 
-        if !repo.rit_dir.exists() {
-            return Err(anyhow!("not a rit repository: .rit directory was not found"));
+            if rit_dir.is_dir() {
+                return Ok(Self {
+                    worktree: current,
+                    rit_dir,
+                });
+            }
+
+            if !current.pop() {
+                return Err(anyhow!("not a rit repository"));
+            }
         }
-
-        Ok(repo)
     }
 
     pub fn init_current_dir() -> Result<Self> {
-        let current_dir = env::current_dir()?;
-        Ok(Self::new(current_dir))
+        let worktree = env::current_dir()?;
+        let rit_dir = worktree.join(".rit");
+
+        if rit_dir.exists() {
+            return Err(anyhow!("rit repository already exists"));
+        }
+
+        fs::create_dir_all(rit_dir.join("objects"))?;
+        fs::create_dir_all(rit_dir.join("refs").join("heads"))?;
+
+        fs::write(rit_dir.join("HEAD"), "ref: refs/heads/main\n")?;
+        fs::write(rit_dir.join("config"), "")?;
+
+        Ok(Self { worktree, rit_dir })
     }
 
     pub fn objects_dir(&self) -> PathBuf {
@@ -54,5 +64,13 @@ impl Repository {
 
     pub fn config_path(&self) -> PathBuf {
         self.rit_dir.join("config")
+    }
+
+    pub fn index_path(&self) -> PathBuf {
+        self.rit_dir.join("index")
+    }
+
+    pub fn merge_head_path(&self) -> PathBuf {
+        self.rit_dir.join("MERGE_HEAD")
     }
 }
