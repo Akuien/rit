@@ -16,43 +16,52 @@ struct MergeResult {
     conflicts: Vec<String>,
 }
 
-pub fn run(branch_name: &str) -> Result<()> {
+pub fn run(branch_name: Option<&str>, abort: bool) -> Result<()> {
     let repo = Repository::discover()?;
 
-    ensure_no_merge_in_progress(&repo)?;
-    ensure_working_tree_clean(&repo)?;
+    match (abort, branch_name) {
+        (true, None) => abort_merge(&repo),
+        (true, Some(_)) => Err(anyhow!("cannot use --abort with a branch name")),
+        (false, Some(branch_name)) => merge_branch(&repo, branch_name),
+        (false, None) => Err(anyhow!("branch name required")),
+    }
+}
 
-    let ours = read_head_commit(&repo)?.ok_or_else(|| anyhow!("cannot merge: no commits yet"))?;
-    let theirs = resolve_name(&repo, branch_name)?;
+fn merge_branch(repo: &Repository, branch_name: &str) -> Result<()> {
+    ensure_no_merge_in_progress(repo)?;
+    ensure_working_tree_clean(repo)?;
+
+    let ours = read_head_commit(repo)?.ok_or_else(|| anyhow!("cannot merge: no commits yet"))?;
+    let theirs = resolve_name(repo, branch_name)?;
 
     if ours == theirs {
         println!("Already up to date.");
         return Ok(());
     }
 
-    let base = find_merge_base(&repo, &ours, &theirs)?;
+    let base = find_merge_base(repo, &ours, &theirs)?;
 
     if base == theirs {
         println!("Already up to date.");
         return Ok(());
     }
 
-    let base_files = head_tree_file_map(&repo, &base)?;
-    let ours_files = head_tree_file_map(&repo, &ours)?;
-    let theirs_files = head_tree_file_map(&repo, &theirs)?;
+    let base_files = head_tree_file_map(repo, &base)?;
+    let ours_files = head_tree_file_map(repo, &ours)?;
+    let theirs_files = head_tree_file_map(repo, &theirs)?;
 
     let merge_result = merge_file_maps(&base_files, &ours_files, &theirs_files);
 
     if !merge_result.conflicts.is_empty() {
         write_conflict_files(
-            &repo,
+            repo,
             &merge_result.conflicts,
             &ours_files,
             &theirs_files,
             branch_name,
         )?;
 
-        write_merge_head(&repo, &theirs)?;
+        write_merge_head(repo, &theirs)?;
 
         eprintln!("Automatic merge failed. Fix conflicts and then commit the result.");
         eprintln!("Conflicts:");
@@ -64,14 +73,14 @@ pub fn run(branch_name: &str) -> Result<()> {
         return Err(anyhow!("merge failed due to conflicts"));
     }
 
-    write_merged_worktree_and_index(&repo, &merge_result.merged_files)?;
+    write_merged_worktree_and_index(repo, &merge_result.merged_files)?;
 
     let tree_hash = Index {
         entries: merge_result.merged_files,
     }
-    .write_tree(&repo)?;
+    .write_tree(repo)?;
 
-    let current_branch = current_branch_name(&repo)?;
+    let current_branch = current_branch_name(repo)?;
     let author = format!("Akuien <akuien@example.com> {} +0200", current_timestamp());
     let committer = author.clone();
     let message = format!("Merge branch '{}' into {}", branch_name, current_branch);
@@ -87,9 +96,28 @@ pub fn run(branch_name: &str) -> Result<()> {
 
     let merge_commit_hash = write_object(&repo.objects_dir(), ObjectType::Commit, &commit_content)?;
 
-    update_head_commit(&repo, &merge_commit_hash)?;
+    update_head_commit(repo, &merge_commit_hash)?;
 
     println!("Merge made commit {}", &merge_commit_hash[..7]);
+
+    Ok(())
+}
+
+fn abort_merge(repo: &Repository) -> Result<()> {
+    if !repo.merge_head_path().exists() {
+        return Err(anyhow!("no merge in progress"));
+    }
+
+    let head_commit =
+        read_head_commit(repo)?.ok_or_else(|| anyhow!("cannot abort merge: no commits yet"))?;
+
+    let head_files = head_tree_file_map(repo, &head_commit)?;
+
+    write_merged_worktree_and_index(repo, &head_files)?;
+
+    fs::remove_file(repo.merge_head_path())?;
+
+    println!("Merge aborted");
 
     Ok(())
 }

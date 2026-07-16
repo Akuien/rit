@@ -6,7 +6,7 @@ mod git;
 
 #[derive(Parser)]
 #[command(name = "rit")]
-#[command(about = "A tiny Git implementation written in Rust")]
+#[command(about = "A small Git-like version control system written in Rust")]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -40,7 +40,7 @@ enum Command {
     Status,
 
     Add {
-        path:String,
+        path: String,
     },
 
     Branch {
@@ -67,34 +67,36 @@ enum Command {
     },
 
     MergeBase {
-    first: String,
-    second: String,
+        first: String,
+        second: String,
     },
 
     Merge {
-    branch: String,
+        #[arg(long)]
+        abort: bool,
+
+        branch: Option<String>,
     },
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-match cli.command {
-    Command::Init => commands::init::run(),
-    Command::HashObject { path } => commands::hash_object::run(&path),
-    Command::CatFile { hash } => commands::cat_file::run(&hash),
-    Command::WriteTree => commands::write_tree::run(),
-    Command::Commit { message } => commands::commit::run(&message),
-    Command::Log => commands::log::run(),
-    Command::Checkout { hash } => commands::checkout::run(&hash),
-    Command::Status => commands::status::run(),
-    Command::Add { path } => commands::add::run(&path),
-    Command::Branch { delete, name } => commands::branch::run(name.as_deref(), delete),
-    Command::Diff { cached } => commands::diff::run(cached),
-    Command::Rm { path } => commands::rm::run(&path),
-    Command::Restore { staged, path } => commands::restore::run(&path, staged),
-    Command::MergeBase { first, second } => commands::merge_base::run(&first, &second),
-    Command::Merge { branch } => commands::merge::run(&branch),
-}
-
+    match cli.command {
+        Command::Init => commands::init::run(),
+        Command::HashObject { path } => commands::hash_object::run(&path),
+        Command::CatFile { hash } => commands::cat_file::run(&hash),
+        Command::WriteTree => commands::write_tree::run(),
+        Command::Commit { message } => commands::commit::run(&message),
+        Command::Log => commands::log::run(),
+        Command::Checkout { hash } => commands::checkout::run(&hash),
+        Command::Status => commands::status::run(),
+        Command::Add { path } => commands::add::run(&path),
+        Command::Branch { delete, name } => commands::branch::run(name.as_deref(), delete),
+        Command::Diff { cached } => commands::diff::run(cached),
+        Command::Rm { path } => commands::rm::run(&path),
+        Command::Restore { staged, path } => commands::restore::run(&path, staged),
+        Command::MergeBase { first, second } => commands::merge_base::run(&first, &second),
+        Command::Merge { abort, branch } => commands::merge::run(branch.as_deref(), abort),
+    }
 }
