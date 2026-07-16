@@ -65,7 +65,11 @@ pub fn parse_commit(data: &[u8]) -> anyhow::Result<Commit> {
         if let Some(value) = header.strip_prefix("tree ") {
             tree = Some(value.to_string());
         } else if let Some(value) = header.strip_prefix("parent ") {
-            parent = Some(value.to_string());
+            // A merge commit can have multiple parent lines.
+            // For now, rit stores only the first parent so normal log traversal
+            if parent.is_none() {
+                parent = Some(value.to_string());
+            }
         } else if let Some(value) = header.strip_prefix("author ") {
             author = Some(value.to_string());
         } else if let Some(value) = header.strip_prefix("committer ") {

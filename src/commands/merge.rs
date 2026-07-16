@@ -6,10 +6,15 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::git::commit::serialize_commit;
 use crate::git::index::Index;
 use crate::git::merge_base::find_merge_base;
-use crate::git::object::{write_object, ObjectType};
+use crate::git::object::{read_blob_content, write_object, ObjectType};
 use crate::git::refs::{current_branch_name, read_head_commit, resolve_name, update_head_commit};
 use crate::git::repository::Repository;
 use crate::git::status::{head_tree_file_map, working_tree_file_map};
+
+struct MergeResult {
+    merged_files: HashMap<String, String>,
+    conflicts: Vec<String>,
+}
 
 pub fn run(branch_name: &str) -> Result<()> {
     let repo = Repository::discover()?;
@@ -35,12 +40,31 @@ pub fn run(branch_name: &str) -> Result<()> {
     let ours_files = head_tree_file_map(&repo, &ours)?;
     let theirs_files = head_tree_file_map(&repo, &theirs)?;
 
-    let merged_files = merge_file_maps(&base_files, &ours_files, &theirs_files)?;
+    let merge_result = merge_file_maps(&base_files, &ours_files, &theirs_files);
 
-    write_merged_worktree_and_index(&repo, &merged_files)?;
+    if !merge_result.conflicts.is_empty() {
+        write_conflict_files(
+            &repo,
+            &merge_result.conflicts,
+            &ours_files,
+            &theirs_files,
+            branch_name,
+        )?;
+
+        eprintln!("Automatic merge failed. Fix conflicts and then commit the result.");
+        eprintln!("Conflicts:");
+
+        for path in &merge_result.conflicts {
+            eprintln!("    {}", path);
+        }
+
+        return Err(anyhow!("merge failed due to conflicts"));
+    }
+
+    write_merged_worktree_and_index(&repo, &merge_result.merged_files)?;
 
     let tree_hash = Index {
-        entries: merged_files,
+        entries: merge_result.merged_files,
     }
     .write_tree(&repo)?;
 
@@ -82,7 +106,7 @@ fn merge_file_maps(
     base: &HashMap<String, String>,
     ours: &HashMap<String, String>,
     theirs: &HashMap<String, String>,
-) -> Result<HashMap<String, String>> {
+) -> MergeResult {
     let mut paths = BTreeSet::new();
 
     for path in base.keys() {
@@ -131,7 +155,7 @@ fn merge_file_maps(
             }
 
             (Some(_), None, None) => {
-                // deleted by both sides: keep deleted
+                // Deleted by both sides, so keep deleted.
             }
 
             _ => {
@@ -140,16 +164,10 @@ fn merge_file_maps(
         }
     }
 
-    if !conflicts.is_empty() {
-        eprintln!("merge conflict in:");
-        for path in conflicts {
-            eprintln!("    {}", path);
-        }
-
-        return Err(anyhow!("merge failed due to conflicts"));
+    MergeResult {
+        merged_files: merged,
+        conflicts,
     }
-
-    Ok(merged)
 }
 
 fn write_merged_worktree_and_index(
@@ -175,7 +193,7 @@ fn write_merged_worktree_and_index(
             fs::create_dir_all(parent)?;
         }
 
-        let content = crate::git::object::read_blob_content(&repo.objects_dir(), hash)?;
+        let content = read_blob_content(&repo.objects_dir(), hash)?;
         fs::write(full_path, content)?;
     }
 
@@ -186,6 +204,54 @@ fn write_merged_worktree_and_index(
     index.save(repo)?;
 
     Ok(())
+}
+
+fn write_conflict_files(
+    repo: &Repository,
+    conflicts: &[String],
+    ours_files: &HashMap<String, String>,
+    theirs_files: &HashMap<String, String>,
+    branch_name: &str,
+) -> Result<()> {
+    for path in conflicts {
+        let ours_content = match ours_files.get(path) {
+            Some(hash) => read_blob_content(&repo.objects_dir(), hash)?,
+            None => Vec::new(),
+        };
+
+        let theirs_content = match theirs_files.get(path) {
+            Some(hash) => read_blob_content(&repo.objects_dir(), hash)?,
+            None => Vec::new(),
+        };
+
+        let ours_text = String::from_utf8_lossy(&ours_content);
+        let theirs_text = String::from_utf8_lossy(&theirs_content);
+
+        let conflict_text = format!(
+            "<<<<<<< HEAD\n{}=======\n{}>>>>>>> {}\n",
+            ensure_trailing_newline(&ours_text),
+            ensure_trailing_newline(&theirs_text),
+            branch_name
+        );
+
+        let full_path = repo.worktree.join(path);
+
+        if let Some(parent) = full_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        fs::write(full_path, conflict_text)?;
+    }
+
+    Ok(())
+}
+
+fn ensure_trailing_newline(text: &str) -> String {
+    if text.ends_with('\n') {
+        text.to_string()
+    } else {
+        format!("{}\n", text)
+    }
 }
 
 fn current_timestamp() -> u64 {
