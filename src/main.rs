@@ -65,6 +65,11 @@ enum Command {
 
         path: String,
     },
+
+    MergeBase {
+    first: String,
+    second: String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -84,6 +89,7 @@ match cli.command {
     Command::Diff { cached } => commands::diff::run(cached),
     Command::Rm { path } => commands::rm::run(&path),
     Command::Restore { staged, path } => commands::restore::run(&path, staged),
+    Command::MergeBase { first, second } => commands::merge_base::run(&first, &second),
 }
 
 }

@@ -11,3 +11,4 @@ pub mod branch;
 pub mod diff;
 pub mod rm;
 pub mod restore;
+pub mod merge_base;

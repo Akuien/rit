@@ -183,3 +183,11 @@ pub fn update_head_commit(repo: &Repository, commit_hash: &str) -> Result<()> {
 
     Ok(())
 }
+
+pub fn resolve_name(repo: &Repository, name: &str) -> Result<String> {
+    if branch_exists(repo, name) {
+        return read_branch_commit(repo, name);
+    }
+
+    Ok(name.to_string())
+}

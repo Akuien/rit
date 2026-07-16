@@ -6,3 +6,4 @@ pub mod commit; // This makes git::commit available to the rest of the program.
 pub mod refs;
 pub mod status;
 pub mod index;
+pub mod merge_base;
